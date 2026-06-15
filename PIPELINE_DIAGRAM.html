@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AL-BAYAN# — Pipeline Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:    #050E1A;
+  --bg2:   #0A192F;
+  --bg3:   #0D2137;
+  --cyan:  #00E5FF;
+  --gold:  #D4AF37;
+  --white: #E8F1F2;
+  --dim:   #607B96;
+  --green: #00FFB0;
+  --red:   #FF4E6A;
+  --purple:#C792EA;
+  --orange:#FF9F1C;
+  --blue:  #4A9EFF;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg);
+  color:var(--white);
+  font-family:'Cairo',sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── HEADER ── */
+header{
+  text-align:center;
+  padding:48px 20px 20px;
+  position:relative;
+}
+.logo{
+  font-size:42px;font-weight:900;
+  background:linear-gradient(135deg,var(--cyan),var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:4px;
+}
+.tagline{color:var(--dim);font-size:14px;margin-top:8px;letter-spacing:1px}
+
+/* ── STATS BAR ── */
+.stats{
+  display:flex;justify-content:center;gap:40px;
+  padding:16px 20px 40px;flex-wrap:wrap;
+}
+.stat{text-align:center}
+.stat-val{
+  font-size:28px;font-weight:900;
+  background:linear-gradient(135deg,var(--cyan),var(--green));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.stat-lbl{color:var(--dim);font-size:11px;letter-spacing:1px}
+
+/* ── PIPELINE CANVAS ── */
+.canvas-outer{
+  max-width:1300px;margin:0 auto;
+  padding:0 20px 80px;
+  position:relative;
+}
+
+/* ── STAGE CARDS ── */
+.stages{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  position:relative;
+}
+
+.stage-row{
+  display:flex;
+  align-items:center;
+  gap:0;
+  opacity:0;
+  transform:translateX(60px);
+  transition:opacity .6s ease, transform .6s ease;
+}
+.stage-row.visible{opacity:1;transform:translateX(0)}
+.stage-row:nth-child(even){flex-direction:row-reverse}
+.stage-row:nth-child(even) .stage-card{border-radius:16px 0 0 16px}
+.stage-row:nth-child(odd)  .stage-card{border-radius:0 16px 16px 0}
+
+.stage-card{
+  flex:1;
+  background:var(--bg2);
+  border:1px solid rgba(255,255,255,.06);
+  padding:28px 32px;
+  position:relative;
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform .3s, box-shadow .3s;
+}
+.stage-card:hover{
+  transform:scale(1.02);
+  z-index:10;
+}
+.stage-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+  background:var(--accent);
+  transform:scaleX(0);
+  transform-origin:right;
+  transition:transform .4s ease;
+}
+.stage-card:hover::before,
+.stage-card.active::before{transform:scaleX(1)}
+
+/* Animated scan line */
+.stage-card::after{
+  content:'';
+  position:absolute;
+  top:-100%;left:0;right:0;
+  height:200%;
+  background:linear-gradient(transparent,
+    rgba(0,229,255,.04) 50%,
+    transparent);
+  transform:translateY(0);
+  animation:scan 4s linear infinite;
+  pointer-events:none;
+}
+@keyframes scan{to{transform:translateY(100%)}}
+
+.stage-num{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  color:var(--accent);
+  letter-spacing:3px;
+  margin-bottom:8px;
+  opacity:.8;
+}
+.stage-title{
+  font-size:20px;font-weight:700;
+  color:var(--white);
+  margin-bottom:6px;
+}
+.stage-file{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--dim);
+  margin-bottom:14px;
+}
+.stage-desc{
+  font-size:13px;color:#8B9FC0;
+  line-height:1.8;
+  margin-bottom:16px;
+}
+.stage-tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{
+  padding:3px 10px;
+  border-radius:20px;
+  font-size:10.5px;
+  font-weight:600;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+  color:var(--white);
+  transition:background .2s;
+}
+.tag:hover{background:rgba(255,255,255,.1)}
+
+/* ── CONNECTOR ── */
+.connector{
+  width:120px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  height:120px;
+}
+.conn-line{
+  position:absolute;
+  width:2px;
+  height:100%;
+  background:linear-gradient(to bottom,
+    var(--c1) 0%,
+    var(--c2) 100%);
+  left:50%;transform:translateX(-50%);
+}
+.conn-dot{
+  width:16px;height:16px;
+  border-radius:50%;
+  background:var(--c1);
+  z-index:2;
+  box-shadow:0 0 20px var(--c1), 0 0 40px rgba(0,229,255,.3);
+  animation:pulse-dot 2s infinite;
+}
+@keyframes pulse-dot{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.4);opacity:.7}
+}
+.conn-arrow{
+  position:absolute;
+  bottom:8px;left:50%;
+  transform:translateX(-50%);
+  width:0;height:0;
+  border-left:8px solid transparent;
+  border-right:8px solid transparent;
+  border-top:12px solid var(--c2);
+  filter:drop-shadow(0 0 6px var(--c2));
+}
+
+/* ── ANIMATED FLOW PARTICLES ── */
+.particle{
+  position:absolute;
+  width:6px;height:6px;
+  border-radius:50%;
+  background:var(--c1);
+  left:50%;
+  transform:translateX(-50%);
+  box-shadow:0 0 10px var(--c1);
+  animation:flow-particle 1.8s linear infinite;
+}
+.particle:nth-child(2){animation-delay:.6s}
+.particle:nth-child(3){animation-delay:1.2s}
+@keyframes flow-particle{
+  0%{top:0;opacity:0}
+  10%{opacity:1}
+  90%{opacity:1}
+  100%{top:100%;opacity:0}
+}
+
+/* ── DETAIL PANEL ── */
+.detail-panel{
+  max-height:0;overflow:hidden;
+  transition:max-height .5s ease;
+  background:var(--bg3);
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.stage-card.active .detail-panel{max-height:400px}
+.detail-inner{padding:20px 0 4px}
+.detail-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px 24px;
+}
+.detail-item{}
+.di-label{
+  font-size:10px;color:var(--accent);
+  letter-spacing:2px;font-weight:700;
+  margin-bottom:4px;
+}
+.di-val{font-size:12.5px;color:#A8B8D0;line-height:1.7}
+.di-code{
+  font-family:'JetBrains Mono',monospace;
+  background:rgba(0,0,0,.3);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:6px;
+  padding:10px 12px;
+  margin-top:10px;
+  font-size:11.5px;
+  color:var(--green);
+  direction:ltr;text-align:left;
+  line-height:1.8;
+}
+
+/* ── FUTURE IDEAS SECTION ── */
+.future-section{
+  max-width:1300px;margin:0 auto;
+  padding:0 20px 80px;
+}
+.section-title{
+  text-align:center;
+  font-size:24px;font-weight:900;
+  color:var(--white);
+  margin-bottom:32px;
+}
+.section-title span{color:var(--cyan)}
+.ideas-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:20px;
+}
+.idea-card{
+  background:var(--bg2);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:12px;
+  padding:24px;
+  position:relative;
+  overflow:hidden;
+  opacity:0;
+  transform:translateY(30px);
+  transition:opacity .5s, transform .5s;
+}
+.idea-card.visible{opacity:1;transform:translateY(0)}
+.idea-card::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at 0% 0%, var(--accent) 0%, transparent 60%);
+  opacity:.04;
+}
+.idea-icon{font-size:28px;margin-bottom:12px}
+.idea-title{font-size:15px;font-weight:700;color:var(--white);margin-bottom:8px}
+.idea-desc{font-size:12.5px;color:#8B9FC0;line-height:1.7}
+.idea-badge{
+  display:inline-block;margin-top:12px;
+  padding:3px 10px;border-radius:20px;
+  font-size:10px;font-weight:700;
+}
+.impact-high  {background:rgba(0,255,176,.1);color:var(--green);border:1px solid rgba(0,255,176,.2)}
+.impact-med   {background:rgba(255,159,28,.1);color:var(--orange);border:1px solid rgba(255,159,28,.2)}
+
+/* ── BACKGROUND GRID ── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,229,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,.03) 1px, transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+  z-index:0;
+}
+body>*{position:relative;z-index:1}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AL-BAYAN#</div>
+  <div class="tagline">Jordanian Official Gazette · AI Classification Pipeline · الجامعة الهاشمية</div>
+</header>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-val" id="f1-counter">0.000</div>
+    <div class="stat-lbl">F1-MACRO</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="sec-counter">0</div>
+    <div class="stat-lbl">SECTORS</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="mdl-counter">0</div>
+    <div class="stat-lbl">MODELS</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="imp-counter">0%</div>
+    <div class="stat-lbl">IMPROVEMENT</div>
+  </div>
+</div>
+
+<div class="canvas-outer">
+  <div class="stages" id="stages">
+
+    <!-- STAGE 1 -->
+    <div class="stage-row" style="--accent:var(--cyan)">
+      <div class="stage-card" style="--accent:var(--cyan)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 01 · 01_fetch_data.py</div>
+        <div class="stage-title">🌐 Fetch Data — سحب البيانات</div>
+        <div class="stage-file">Web Scraper → moj.gov.jo</div>
+        <div class="stage-desc">
+          يسحب ملفات PDF من موقع الجريدة الرسمية الأردنية تلقائياً.
+          يدعم الصفحات المتعددة، التحميل التدريجي، والاستكمال من نقطة التوقف.
+        </div>
+        <div class="stage-tags">
+          <span class="tag">BeautifulSoup</span>
+          <span class="tag">requests</span>
+          <span class="tag">Resume Support</span>
+          <span class="tag">Metadata Excel</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">INPUT</div>
+                <div class="di-val">moj.gov.jo listing pages</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">OUTPUT</div>
+                <div class="di-val">data/pdfs/ + gazette_metadata.xlsx</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">RETRY LOGIC</div>
+                <div class="di-val">3 retries · 1.5s delay between requests</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">KEY FUNCTIONS</div>
+                <div class="di-val">fetch_page · parse_gazette_list · download_pdf</div>
+              </div>
+            </div>
+            <div class="di-code">python 01_fetch_data.py --pages 50</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR 1→2 -->
+    <div class="connector" style="--c1:var(--cyan);--c2:var(--blue)">
+      <div class="conn-line"></div>
+      <div class="conn-dot"></div>
+      <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+      <div class="conn-arrow"></div>
+    </div>
+
+    <!-- STAGE 2 -->
+    <div class="stage-row" style="--accent:var(--blue)">
+      <div class="stage-card" style="--accent:var(--blue)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 02 · 02_ocr.py</div>
+        <div class="stage-title">📄 OCR — استخراج النص</div>
+        <div class="stage-file">Tesseract PSM-6 · DPI=300 · ara+eng</div>
+        <div class="stage-desc">
+          يحوّل صفحات PDF المُسحوبة إلى نص عربي نظيف.
+          Pipeline: تصحيح الدوران → إزالة الظلال → Otsu Threshold → Erosion → OCR.
+          يحفظ نقطة استكمال كل 50 ملف.
+        </div>
+        <div class="stage-tags">
+          <span class="tag">Tesseract</span>
+          <span class="tag">OpenCV</span>
+          <span class="tag">Otsu Threshold</span>
+          <span class="tag">Checkpoint</span>
+          <span class="tag">DPI=300</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">INPUT</div>
+                <div class="di-val">data/pdfs/*.pdf</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">OUTPUT</div>
+                <div class="di-val">data/ocr_results.csv</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">PSM MODE</div>
+                <div class="di-val">PSM 6 — Uniform text block (best for legal docs)</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">PREPROCESSING</div>
+                <div class="di-val">Rotation fix → GaussianBlur → Otsu → Erosion(2×2)</div>
+              </div>
+            </div>
+            <div class="di-code">python 02_ocr.py --input data/pdfs --output data/ocr_results.csv</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR 2→3 -->
+    <div class="connector" style="--c1:var(--blue);--c2:var(--green)">
+      <div class="conn-line"></div>
+      <div class="conn-dot"></div>
+      <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+      <div class="conn-arrow"></div>
+    </div>
+
+    <!-- STAGE 3 -->
+    <div class="stage-row" style="--accent:var(--green)">
+      <div class="stage-card" style="--accent:var(--green)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 03 · 03_augmentation.py</div>
+        <div class="stage-title">🌱 Data Augmentation — توسيع البيانات</div>
+        <div class="stage-file">EDA + AraBERT MLM · Target ≥ 120 docs/sector</div>
+        <div class="stage-desc">
+          يرفع القطاعات النادرة إلى 120+ وثيقة بتقنيات EDA:
+          Synonym Replace، Random Delete، Swap، Insert.
+          يُخفّض التشريعات من 40% إلى 25% لتوازن أفضل.
+        </div>
+        <div class="stage-tags">
+          <span class="tag">EDA × 4 Techniques</span>
+          <span class="tag">AraBERT MLM</span>
+          <span class="tag">Downsampling</span>
+          <span class="tag">Legal Synonyms</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">INPUT</div>
+                <div class="di-val">data/merged.xlsx (raw labeled data)</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">OUTPUT</div>
+                <div class="di-val">data/augmented.xlsx</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">EDA COPIES</div>
+                <div class="di-val">3 augmented versions per rare document</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">TARGET</div>
+                <div class="di-val">≥ 120 documents per sector minimum</div>
+              </div>
+            </div>
+            <div class="di-code">python 03_augmentation.py --input data/merged.xlsx</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR 3→4 -->
+    <div class="connector" style="--c1:var(--green);--c2:var(--purple)">
+      <div class="conn-line"></div>
+      <div class="conn-dot"></div>
+      <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+      <div class="conn-arrow"></div>
+    </div>
+
+    <!-- STAGE 4 -->
+    <div class="stage-row" style="--accent:var(--purple)">
+      <div class="stage-card" style="--accent:var(--purple)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 04 · 04_train.py  ×3</div>
+        <div class="stage-title">🧠 Train BERT Models — تدريب النماذج</div>
+        <div class="stage-file">AraBERT · MarBERT · CaMeLBERT</div>
+        <div class="stage-desc">
+          يُدرّب ثلاثة نماذج BERT عربية بشكل مستقل.
+          Focal Loss (γ=2) + Hard Negative Mining + Per-label Thresholds.
+          Mixed Precision + Gradient Accumulation لـ GPU محدود (4GB).
+        </div>
+        <div class="stage-tags">
+          <span class="tag">Focal Loss γ=2</span>
+          <span class="tag">HNM TOP 25%</span>
+          <span class="tag">Per-label Thresholds</span>
+          <span class="tag">Mixed Precision</span>
+          <span class="tag">Early Stopping</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">ARCHITECTURE</div>
+                <div class="di-val">BERT → Dropout(0.3) → Linear(768→256) → GELU → Linear(256→17)</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">HYPERPARAMS</div>
+                <div class="di-val">BERT_LR=1e-5 · HEAD_LR=5e-5 · BATCH=4 · ACCUM=8</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">RESULTS</div>
+                <div class="di-val">AraBERT=0.682 · MarBERT=0.664 · CaMeLBERT=0.695</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">OUTPUTS</div>
+                <div class="di-val">best_model.pt · test_probs.npy · metrics.json</div>
+              </div>
+            </div>
+            <div class="di-code">python 04_train.py --model arabert
+python 04_train.py --model marbert
+python 04_train.py --model camelbert</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR 4→5 -->
+    <div class="connector" style="--c1:var(--purple);--c2:var(--gold)">
+      <div class="conn-line"></div>
+      <div class="conn-dot"></div>
+      <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+      <div class="conn-arrow"></div>
+    </div>
+
+    <!-- STAGE 5 -->
+    <div class="stage-row" style="--accent:var(--gold)">
+      <div class="stage-card" style="--accent:var(--gold)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 05 · 05_ensemble.py</div>
+        <div class="stage-title">🔗 Ensemble — دمج النماذج</div>
+        <div class="stage-file">Simple Average · F1-Macro = 0.769 ⭐</div>
+        <div class="stage-desc">
+          يدمج احتماليات النماذج الثلاثة بالمتوسط البسيط.
+          اختُبرت 3 طرق: Average, Weighted (F1²), Stacking (LR).
+          Simple Average فاز بفارق واضح عند F1=0.769.
+        </div>
+        <div class="stage-tags">
+          <span class="tag">Simple Average ✓</span>
+          <span class="tag">Weighted F1²</span>
+          <span class="tag">Stacking LR</span>
+          <span class="tag">Threshold Tuning</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">BEST METHOD</div>
+                <div class="di-val">Simple Average — diversity compensates for model differences</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">IMPROVEMENT</div>
+                <div class="di-val">+38% from baseline 0.558 → 0.769</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">TOP SECTORS</div>
+                <div class="di-val">أمن=0.973 · تعليم=0.906 · أراضي=0.909</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">WEAK SECTORS</div>
+                <div class="di-val">عمل=0.508 · تشريعات=0.597 · أشغال=0.533</div>
+              </div>
+            </div>
+            <div class="di-code">python 05_ensemble.py --method all</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR 5→6 -->
+    <div class="connector" style="--c1:var(--gold);--c2:var(--orange)">
+      <div class="conn-line"></div>
+      <div class="conn-dot"></div>
+      <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+      <div class="conn-arrow"></div>
+    </div>
+
+    <!-- STAGE 6 -->
+    <div class="stage-row" style="--accent:var(--orange)">
+      <div class="stage-card" style="--accent:var(--orange)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 06 · 06_specialist.py</div>
+        <div class="stage-title">🎯 Specialist Model — النموذج المتخصص</div>
+        <div class="stage-file">CaMeLBERT · 5 Weak Sectors + Other</div>
+        <div class="stage-desc">
+          يُدرّب نموذجاً متخصصاً في القطاعات الضعيفة فقط.
+          تقسيم استراتيجي: تشريعات 65/35، باقي 80/20.
+          Gating: يتدخل فقط عندما يكون واثقاً (لا يقول "أخرى").
+        </div>
+        <div class="stage-tags">
+          <span class="tag">Strategic Split 65/35</span>
+          <span class="tag">Gating Mechanism</span>
+          <span class="tag">Other Balancing 1.5×</span>
+          <span class="tag">Threshold ≥ 0.30</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">TARGET SECTORS</div>
+                <div class="di-val">تشريعات · إدارة · تجارة · مالية · تعليم</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">KEY TRICK</div>
+                <div class="di-val">Balance 'other' class to ≤ 1.5× largest sector</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">OUTPUT</div>
+                <div class="di-val">test_probs.npy [n×17] — expanded for ensemble</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">BERT_LR</div>
+                <div class="di-val">8e-6 (lower than main — specialist fine-tuning)</div>
+              </div>
+            </div>
+            <div class="di-code">python 06_specialist.py
+python 06_specialist.py --resume --extra-epochs 10</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR 6→7 -->
+    <div class="connector" style="--c1:var(--orange);--c2:var(--red)">
+      <div class="conn-line"></div>
+      <div class="conn-dot"></div>
+      <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+      <div class="conn-arrow"></div>
+    </div>
+
+    <!-- STAGE 7 -->
+    <div class="stage-row" style="--accent:var(--red)">
+      <div class="stage-card" style="--accent:var(--red)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 07 · 07_generation.py</div>
+        <div class="stage-title">✨ Tag Generation — توليد الوسوم</div>
+        <div class="stage-file">AraT5 + BiEncoder InfoNCE + RAG Hybrid</div>
+        <div class="stage-desc">
+          يُولّد وسوماً دلالية للوثائق. AraT5 يُولّد وسماً، BiEncoder يقيّم جودته.
+          إذا confidence ≥ 0.60 → قبول. وإلا → RAG يسترجع أفضل 5 وسوم مشابهة.
+        </div>
+        <div class="stage-tags">
+          <span class="tag">AraT5</span>
+          <span class="tag">InfoNCE T=20</span>
+          <span class="tag">RAG Top-5</span>
+          <span class="tag">Threshold 0.60</span>
+          <span class="tag">ROUGE-L</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">PIPELINE</div>
+                <div class="di-val">AraT5 generate → BiEncoder cosine sim → accept or RAG fallback</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">CONFIDENCE</div>
+                <div class="di-val">≥ 0.60 → accept generation · &lt; 0.60 → retrieval</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">METRICS</div>
+                <div class="di-val">ROUGE-1/2/L · Semantic Similarity · Exact Match @1/@3</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">INDEX</div>
+                <div class="di-val">Pre-computed embeddings for all known tags (fast search)</div>
+              </div>
+            </div>
+            <div class="di-code">python 07_generation.py --mode train
+python 07_generation.py --mode tag --text "نص وثيقة"</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR 7→8 -->
+    <div class="connector" style="--c1:var(--red);--c2:var(--cyan)">
+      <div class="conn-line"></div>
+      <div class="conn-dot"></div>
+      <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+      <div class="conn-arrow"></div>
+    </div>
+
+    <!-- STAGE 8 -->
+    <div class="stage-row" style="--accent:var(--cyan)">
+      <div class="stage-card" style="--accent:var(--cyan)" onclick="toggleCard(this)">
+        <div class="stage-num">STEP 08 · 08_inference.py</div>
+        <div class="stage-title">⚡ Inference — التنبؤ</div>
+        <div class="stage-file">Text / File / Folder → Classified Sectors</div>
+        <div class="stage-desc">
+          يُصنّف وثائق جديدة في ثوانٍ.
+          يدعم: نص مباشر، ملف .txt، ملف PDF، أو مجلد كامل.
+          يُخرج القطاعات المُكتشفة مع الاحتماليات ويحفظها CSV.
+        </div>
+        <div class="stage-tags">
+          <span class="tag">Text Input</span>
+          <span class="tag">PDF Support</span>
+          <span class="tag">Batch Folder</span>
+          <span class="tag">CSV Output</span>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-inner">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <div class="di-label">INPUT</div>
+                <div class="di-val">Text string · .txt file · .pdf file · folder of PDFs</div>
+              </div>
+              <div class="detail-item">
+                <div class="di-label">OUTPUT</div>
+                <div class="di-val">Ranked sectors + probabilities (optional CSV)</div>
+              </div>
+            </div>
+            <div class="di-code">python 08_inference.py --text "نص القانون"
+python 08_inference.py --file doc.pdf --output results.csv
+python 08_inference.py --folder data/new_pdfs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end stages -->
+</div><!-- end canvas-outer -->
+
+<!-- ── FUTURE IDEAS ── -->
+<div class="future-section">
+  <div class="section-title">💡 أفكار <span>تطويرية</span> مستقبلية</div>
+  <div class="ideas-grid" id="ideas-grid">
+
+    <div class="idea-card" style="--accent:var(--cyan)">
+      <div class="idea-icon">🌍</div>
+      <div class="idea-title">Cross-Lingual Extension</div>
+      <div class="idea-desc">توسيع النظام لتصنيف الجرائد الرسمية لدول عربية أخرى (السعودية، مصر، الإمارات) بنفس الـ pipeline</div>
+      <span class="idea-badge impact-high">High Impact</span>
+    </div>
+
+    <div class="idea-card" style="--accent:var(--green)">
+      <div class="idea-icon">🤖</div>
+      <div class="idea-title">Active Learning Loop</div>
+      <div class="idea-desc">نظام Human-in-the-loop يطلب مراجعة بشرية للوثائق الغامضة فقط (confidence 40-60%) لتحسين مستمر بأقل جهد</div>
+      <span class="idea-badge impact-high">High Impact</span>
+    </div>
+
+    <div class="idea-card" style="--accent:var(--gold)">
+      <div class="idea-icon">🔍</div>
+      <div class="idea-title">Semantic Search Engine</div>
+      <div class="idea-desc">Vector database (Pinecone/Weaviate) لاسترجاع الوثائق المتشابهة دلالياً. "أعطني كل قوانين العمل بعد 2010"</div>
+      <span class="idea-badge impact-high">High Impact</span>
+    </div>
+
+    <div class="idea-card" style="--accent:var(--orange)">
+      <div class="idea-icon">⚡</div>
+      <div class="idea-title">REST API — FastAPI</div>
+      <div class="idea-desc">واجهة API جاهزة للإنتاج تتيح للمطورين والمؤسسات الحكومية استخدام النموذج مباشرة بطلبات HTTP</div>
+      <span class="idea-badge impact-med">Medium Impact</span>
+    </div>
+
+    <div class="idea-card" style="--accent:var(--purple)">
+      <div class="idea-icon">📊</div>
+      <div class="idea-title">Hierarchical Classification</div>
+      <div class="idea-desc">تصنيف هرمي: قطاع رئيسي → قطاع فرعي. مثلاً: تشريعات → قانون عمل / قانون تجاري / قانون جنائي</div>
+      <span class="idea-badge impact-high">High Impact</span>
+    </div>
+
+    <div class="idea-card" style="--accent:var(--red)">
+      <div class="idea-icon">🧪</div>
+      <div class="idea-title">GPT-4 Data Augmentation</div>
+      <div class="idea-desc">استبدال EDA البسيطة بـ GPT-4 لتوليد وثائق قانونية عربية اصطناعية متسقة لغوياً للقطاعات النادرة</div>
+      <span class="idea-badge impact-high">High Impact</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Counter animation ──────────────────────────────────────
+function animateCounter(id, target, decimals, suffix, duration) {
+  const el  = document.getElementById(id);
+  const fps = 60;
+  const steps = (duration / 1000) * fps;
+  let cur = 0, step = 0;
+  const timer = setInterval(() => {
+    step++;
+    cur = target * (step / steps);
+    if (step >= steps) { cur = target; clearInterval(timer); }
+    el.textContent = decimals > 0
+      ? cur.toFixed(decimals) + suffix
+      : Math.round(cur) + suffix;
+  }, 1000 / fps);
+}
+
+setTimeout(() => {
+  animateCounter("f1-counter",  0.769, 3, "",  1800);
+  animateCounter("sec-counter", 17,    0, "",  1200);
+  animateCounter("mdl-counter", 3,     0, "",  1000);
+  animateCounter("imp-counter", 38,    0, "%", 1500);
+}, 300);
+
+// ── Scroll-triggered reveals ──────────────────────────────
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add("visible"), i * 80);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll(".stage-row, .idea-card").forEach(el => {
+  observer.observe(el);
+});
+
+// ── Card toggle ───────────────────────────────────────────
+function toggleCard(card) {
+  const wasActive = card.classList.contains("active");
+  document.querySelectorAll(".stage-card.active").forEach(c => c.classList.remove("active"));
+  if (!wasActive) card.classList.add("active");
+}
+
+// ── Stagger connector animations ─────────────────────────
+document.querySelectorAll(".particle").forEach((p, i) => {
+  p.style.animationDelay = (i * 0.18) + "s";
+});
+</script>
+</body>
+</html>
