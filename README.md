@@ -205,5 +205,5 @@ sentencepiece>=0.1.99
 
 
 <p align="center">
-  Built with ❤️ for Arabic NLP · Hashemite University 2025
+  Built with ❤️ for Arabic NLP · Hashemite University 2026
 </p>
