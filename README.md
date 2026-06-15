@@ -190,14 +190,13 @@ sentencepiece>=0.1.99
 
 ## 👥 Team
 
-| Name 
-|------
-
-| **Albara Aljaber** 
-| Mohamd Olimat 
-| Ahmad Bustanji 
-| Hothifa Howary
-| Shaden Abd 
+| Name |
+|------|
+| **Albara Aljaber** |
+| Mohamd Olimat |
+| Ahmad Bustanji |
+| Hothifa Howary|
+| Shaden Abd |
 
 **Supervisor:** Dr. Majdi Maabreh  
 **Institution:** Hashemite University — Faculty of Prince Al-Hussein bin Abdallah II for IT
