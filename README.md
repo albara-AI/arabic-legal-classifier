@@ -190,13 +190,14 @@ sentencepiece>=0.1.99
 
 ## 👥 Team
 
-| Name | Role |
-|------|------|
-| Hothifa Howary | NLP Pipeline |
-| Mohamd Olimat | Data Collection |
-| Ahmad Bustanji | Model Training |
-| **Albara Aljaber** | Architecture & Ensemble |
-| Shaden Abd | OCR & Preprocessing |
+| Name 
+|------
+
+| **Albara Aljaber** 
+| Mohamd Olimat 
+| Ahmad Bustanji 
+| Hothifa Howary
+| Shaden Abd 
 
 **Supervisor:** Dr. Majdi Maabreh  
 **Institution:** Hashemite University — Faculty of Prince Al-Hussein bin Abdallah II for IT
