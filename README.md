@@ -203,11 +203,6 @@ sentencepiece>=0.1.99
 
 ---
 
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
----
 
 <p align="center">
   Built with ❤️ for Arabic NLP · Hashemite University 2025
